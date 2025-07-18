@@ -1,0 +1,16 @@
+# nginx-cloudlens/templates/poddisruptionbudget.yaml
+{{- if .Values.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "nginx-cloudlens.fullname" . }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "nginx-cloudlens.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "nginx-cloudlens.selectorLabels" . | nindent 6 }}
+  unhealthyPodEvictionPolicy: AlwaysAllow
+{{- end }}

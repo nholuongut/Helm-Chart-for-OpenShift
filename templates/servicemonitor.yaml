@@ -1,0 +1,24 @@
+# nginx-cloudlens/templates/servicemonitor.yaml
+{{- if and .Values.monitoring.enabled .Values.monitoring.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "nginx-cloudlens.fullname" . }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "nginx-cloudlens.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "nginx-cloudlens.selectorLabels" . | nindent 6 }}
+  endpoints:
+  - port: metrics
+    interval: {{ .Values.monitoring.serviceMonitor.interval }}
+    path: /metrics
+    scheme: http
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: node_name
+    - sourceLabels: [__meta_kubernetes_pod_name]
+      targetLabel: pod_name
+{{- end }}

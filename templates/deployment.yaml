@@ -1,0 +1,172 @@
+# nginx-cloudlens/templates/deployment.yaml
+{{- $root := . -}}
+{{- range $i := until (int .Values.deployment.podsPerNode) }}
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "nginx-cloudlens.fullname" $root }}-{{ $i }}
+  namespace: {{ $root.Values.namespace }}
+  labels:
+    {{- include "nginx-cloudlens.labels" $root | nindent 4 }}
+    pod-group: "nginx-{{ $i }}"
+spec:
+  selector:
+    matchLabels:
+      {{- include "nginx-cloudlens.selectorLabels" $root | nindent 6 }}
+      pod-group: "nginx-{{ $i }}"
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") $root | sha256sum }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9113"
+      labels:
+        {{- include "nginx-cloudlens.selectorLabels" $root | nindent 8 }}
+        pod-group: "nginx-{{ $i }}"
+    spec:
+      {{- with $root.Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "nginx-cloudlens.serviceAccountName" $root }}
+      securityContext:
+        {{- toYaml $root.Values.podSecurityContext | nindent 8 }}
+      
+      {{- if $root.Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml $root.Values.nodeSelector | nindent 8 }}
+      {{- end }}
+      
+      {{- if $root.Values.tolerations }}
+      tolerations:
+        {{- toYaml $root.Values.tolerations | nindent 8 }}
+      {{- end }}
+      
+      initContainers:
+      - name: setup-html
+        image: busybox:1.36
+        command: ['/bin/sh', '-c']
+        args:
+          - |
+            cp /config/index.html /usr/share/nginx/html/index.html
+            sed -i "s/{{ "{{ POD_NAME }}" }}/$POD_NAME/g" /usr/share/nginx/html/index.html
+            sed -i "s/{{ "{{ NODE_NAME }}" }}/$NODE_NAME/g" /usr/share/nginx/html/index.html
+            sed -i "s/{{ "{{ POD_NAMESPACE }}" }}/$POD_NAMESPACE/g" /usr/share/nginx/html/index.html
+            sed -i "s/{{ "{{ NGINX_VERSION }}" }}/1.25.3/g" /usr/share/nginx/html/index.html
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        volumeMounts:
+        - name: html-config
+          mountPath: /config
+        - name: html
+          mountPath: /usr/share/nginx/html
+          
+      {{- if $root.Values.tls.enabled }}
+      - name: generate-certs
+        image: alpine/openssl:latest
+        command: ['/bin/sh', '-c']
+        args:
+          - |
+            if [ ! -f /etc/nginx/ssl/tls.crt ]; then
+              openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+                -keyout /etc/nginx/ssl/tls.key \
+                -out /etc/nginx/ssl/tls.crt \
+                -subj "/C=US/ST=California/L=Santa Rosa/O=Keysight Technologies/CN=nginx-cloudlens"
+            fi
+        volumeMounts:
+        - name: tls-certs
+          mountPath: /etc/nginx/ssl
+      {{- end }}
+      
+      containers:
+      - name: nginx
+        image: "{{ $root.Values.image.repository }}:{{ $root.Values.image.tag | default $root.Chart.AppVersion }}"
+        imagePullPolicy: {{ $root.Values.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        - name: https
+          containerPort: 8443
+          protocol: TCP
+        
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+              
+        livenessProbe:
+          {{- toYaml $root.Values.livenessProbe | nindent 10 }}
+        readinessProbe:
+          {{- toYaml $root.Values.readinessProbe | nindent 10 }}
+          
+        resources:
+          {{- toYaml $root.Values.resources | nindent 10 }}
+          
+        securityContext:
+          {{- toYaml $root.Values.securityContext | nindent 10 }}
+          
+        volumeMounts:
+        - name: html
+          mountPath: /usr/share/nginx/html
+        - name: nginx-config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+        {{- if $root.Values.tls.enabled }}
+        - name: tls-certs
+          mountPath: /etc/nginx/ssl
+        {{- end }}
+        
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/sh", "-c", "sleep 15 && /usr/sbin/nginx -s quit"]
+      
+      # Sidecar for metrics
+      - name: nginx-exporter
+        image: nginx/nginx-prometheus-exporter:0.11.0
+        args:
+          - -nginx.scrape-uri=http://localhost:8080/metrics
+        ports:
+        - name: metrics
+          containerPort: 9113
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 10m
+            memory: 20Mi
+          limits:
+            cpu: 50m
+            memory: 50Mi
+            
+      volumes:
+      - name: html-config
+        configMap:
+          name: {{ include "nginx-cloudlens.fullname" $root }}-html
+      - name: html
+        emptyDir: {}
+      - name: nginx-config
+        configMap:
+          name: {{ include "nginx-cloudlens.fullname" $root }}-config
+      {{- if $root.Values.tls.enabled }}
+      - name: tls-certs
+        emptyDir: {}
+      {{- end }}
+{{- end }}

@@ -1,0 +1,60 @@
+# nginx-cloudlens/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "nginx-cloudlens.fullname" . }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "nginx-cloudlens.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.httpPort }}
+      targetPort: 8080
+      protocol: TCP
+      name: http
+    - port: {{ .Values.service.httpsPort }}
+      targetPort: 8443
+      protocol: TCP
+      name: https
+    # Add the actual container ports
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http-direct
+    - port: 8443
+      targetPort: 8443
+      protocol: TCP
+      name: https-direct
+  selector:
+    {{- include "nginx-cloudlens.selectorLabels" . | nindent 4 }}
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
+---
+# Headless service for internal communication
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "nginx-cloudlens.fullname" . }}-headless
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "nginx-cloudlens.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http
+    - port: 8443
+      targetPort: 8443
+      protocol: TCP
+      name: https
+  selector:
+    {{- include "nginx-cloudlens.selectorLabels" . | nindent 4 }}

@@ -1,0 +1,313 @@
+# nginx-cloudlens/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nginx-cloudlens.fullname" . }}-html
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "nginx-cloudlens.labels" . | nindent 4 }}
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Keysight OpenShift Cluster</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                overflow: hidden;
+            }
+            
+            .container {
+                text-align: center;
+                padding: 2rem;
+                animation: fadeIn 1s ease-out;
+            }
+            
+            h1 {
+                font-size: clamp(2rem, 5vw, 4rem);
+                font-weight: 800;
+                margin-bottom: 2rem;
+                text-transform: uppercase;
+                letter-spacing: 3px;
+                position: relative;
+                display: inline-block;
+            }
+            
+            .welcome-text {
+                background: linear-gradient(45deg, #f093fb 0%, #f5576c 25%, #ffa502 50%, #32ff7e 75%, #7bed9f 100%);
+                background-size: 400% 400%;
+                -webkit-background-clip: text;
+                background-clip: text;
+                -webkit-text-fill-color: transparent;
+                animation: gradient 3s ease infinite;
+                text-shadow: 0 0 30px rgba(255, 255, 255, 0.5);
+            }
+            
+            .subtitle {
+                font-size: clamp(1.2rem, 3vw, 2rem);
+                color: #ffffff;
+                font-weight: 300;
+                letter-spacing: 2px;
+                margin-bottom: 3rem;
+                opacity: 0.9;
+                animation: slideUp 1s ease-out 0.5s both;
+            }
+            
+            .info-box {
+                background: rgba(255, 255, 255, 0.1);
+                backdrop-filter: blur(10px);
+                border-radius: 20px;
+                padding: 2rem;
+                margin: 0 auto;
+                max-width: 600px;
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                animation: slideUp 1s ease-out 0.8s both;
+            }
+            
+            .info-item {
+                color: #ffffff;
+                font-size: 1.1rem;
+                margin: 1rem 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 0.5rem;
+            }
+            
+            .label {
+                font-weight: 600;
+                color: #ffd700;
+            }
+            
+            .logo {
+                width: 150px;
+                height: 150px;
+                margin: 2rem auto;
+                background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 3rem;
+                color: white;
+                font-weight: bold;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+                animation: pulse 2s ease-in-out infinite;
+            }
+            
+            @keyframes gradient {
+                0% { background-position: 0% 50%; }
+                50% { background-position: 100% 50%; }
+                100% { background-position: 0% 50%; }
+            }
+            
+            @keyframes fadeIn {
+                from { opacity: 0; transform: scale(0.9); }
+                to { opacity: 1; transform: scale(1); }
+            }
+            
+            @keyframes slideUp {
+                from { opacity: 0; transform: translateY(30px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            
+            @keyframes pulse {
+                0%, 100% { transform: scale(1); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); }
+                50% { transform: scale(1.05); box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4); }
+            }
+            
+            .particles {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                overflow: hidden;
+                z-index: -1;
+            }
+            
+            .particle {
+                position: absolute;
+                width: 10px;
+                height: 10px;
+                background: rgba(255, 255, 255, 0.5);
+                border-radius: 50%;
+                animation: float 20s infinite linear;
+            }
+            
+            @keyframes float {
+                from { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+                10% { opacity: 1; }
+                90% { opacity: 1; }
+                to { transform: translateY(-100vh) rotate(720deg); opacity: 0; }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="particles" id="particles"></div>
+        
+        <div class="container">
+            <div class="logo">K</div>
+            <h1 class="welcome-text">Welcome to Keysight OpenShift Cluster</h1>
+            <p class="subtitle">Powered by CloudLens Technology</p>
+            
+            <div class="info-box">
+                <div class="info-item">
+                    <span class="label">Pod Name:</span>
+                    <span id="podName">{{ "{{ POD_NAME }}" }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Node Name:</span>
+                    <span id="nodeName">{{ "{{ NODE_NAME }}" }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Namespace:</span>
+                    <span id="namespace">{{ "{{ POD_NAMESPACE }}" }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Container:</span>
+                    <span>NGINX {{ "{{ NGINX_VERSION }}" }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Cluster:</span>
+                    <span>keysight-aro-prod</span>
+                </div>
+            </div>
+        </div>
+        
+        <script>
+            // Create floating particles
+            const particlesContainer = document.getElementById('particles');
+            const particleCount = 50;
+            
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 20 + 's';
+                particle.style.animationDuration = (15 + Math.random() * 10) + 's';
+                particlesContainer.appendChild(particle);
+            }
+        </script>
+    </body>
+    </html>
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nginx-cloudlens.fullname" . }}-config
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "nginx-cloudlens.labels" . | nindent 4 }}
+data:
+  nginx.conf: |
+    worker_processes auto;
+    error_log /var/log/nginx/error.log notice;
+    pid /tmp/nginx.pid;
+    
+    events {
+        worker_connections 1024;
+        use epoll;
+        multi_accept on;
+    }
+    
+    http {
+        client_body_temp_path /tmp/client_temp;
+        proxy_temp_path       /tmp/proxy_temp_path;
+        fastcgi_temp_path     /tmp/fastcgi_temp;
+        uwsgi_temp_path       /tmp/uwsgi_temp;
+        scgi_temp_path        /tmp/scgi_temp;
+        
+        include /etc/nginx/mime.types;
+        default_type application/octet-stream;
+        
+        log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                        '$status $body_bytes_sent "$http_referer" '
+                        '"$http_user_agent" "$http_x_forwarded_for"';
+        
+        access_log /var/log/nginx/access.log main;
+        
+        sendfile on;
+        tcp_nopush on;
+        tcp_nodelay on;
+        keepalive_timeout 65;
+        types_hash_max_size 2048;
+        
+        gzip on;
+        gzip_disable "msie6";
+        gzip_vary on;
+        gzip_proxied any;
+        gzip_comp_level 6;
+        gzip_types text/plain text/css text/xml text/javascript application/json application/javascript application/xml+rss application/rss+xml application/atom+xml;
+        
+        server {
+            listen 8080;
+            listen [::]:8080;
+            server_name _;
+            
+            root /usr/share/nginx/html;
+            index index.html;
+            
+            location / {
+                try_files $uri $uri/ =404;
+                add_header X-Frame-Options "SAMEORIGIN" always;
+                add_header X-Content-Type-Options "nosniff" always;
+                add_header X-XSS-Protection "1; mode=block" always;
+                add_header Referrer-Policy "no-referrer-when-downgrade" always;
+                add_header Content-Security-Policy "default-src 'self' http: https: data: blob: 'unsafe-inline' 'unsafe-eval'" always;
+            }
+            
+            location /health {
+                access_log off;
+                return 200 "healthy\n";
+                add_header Content-Type text/plain;
+            }
+            
+            location /metrics {
+                stub_status on;
+                access_log off;
+            }
+        }
+        
+        server {
+            listen 8443 ssl http2;
+            listen [::]:8443 ssl http2;
+            server_name _;
+            
+            ssl_certificate /etc/nginx/ssl/tls.crt;
+            ssl_certificate_key /etc/nginx/ssl/tls.key;
+            ssl_protocols TLSv1.2 TLSv1.3;
+            ssl_ciphers HIGH:!aNULL:!MD5;
+            ssl_prefer_server_ciphers on;
+            ssl_session_cache shared:SSL:10m;
+            ssl_session_timeout 10m;
+            
+            root /usr/share/nginx/html;
+            index index.html;
+            
+            location / {
+                try_files $uri $uri/ =404;
+                add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+                add_header X-Frame-Options "SAMEORIGIN" always;
+                add_header X-Content-Type-Options "nosniff" always;
+                add_header X-XSS-Protection "1; mode=block" always;
+                add_header Referrer-Policy "no-referrer-when-downgrade" always;
+                add_header Content-Security-Policy "default-src 'self' http: https: data: blob: 'unsafe-inline' 'unsafe-eval'" always;
+            }
+        }
+    }

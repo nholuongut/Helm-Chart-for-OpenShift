@@ -1,0 +1,47 @@
+# nginx-cloudlens/templates/route.yaml
+{{- if .Values.route.enabled }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ include "nginx-cloudlens.fullname" . }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "nginx-cloudlens.labels" . | nindent 4 }}
+  annotations:
+    haproxy.router.openshift.io/timeout: "30s"
+    router.openshift.io/haproxy.health.check.interval: "5s"
+spec:
+  host: {{ .Values.route.host }}
+  to:
+    kind: Service
+    name: {{ include "nginx-cloudlens.fullname" . }}
+    weight: 100
+  port:
+    targetPort: 8080  # Changed from 8443 to 8080 for edge termination
+  tls:
+    termination: {{ .Values.route.tls.termination }}
+    insecureEdgeTerminationPolicy: Allow  # Changed from Redirect to Allow
+  wildcardPolicy: None
+---
+# Additional route for direct HTTPS passthrough if needed
+{{- if .Values.route.enablePassthrough }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ include "nginx-cloudlens.fullname" . }}-passthrough
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "nginx-cloudlens.labels" . | nindent 4 }}
+spec:
+  host: {{ .Values.route.passthroughHost | default (printf "%s-https.%s" (include "nginx-cloudlens.fullname" .) (trimPrefix (printf "%s." (include "nginx-cloudlens.fullname" .)) .Values.route.host)) }}
+  to:
+    kind: Service
+    name: {{ include "nginx-cloudlens.fullname" . }}
+    weight: 100
+  port:
+    targetPort: 8443
+  tls:
+    termination: passthrough
+  wildcardPolicy: None
+{{- end }}
+{{- end }}

@@ -1,0 +1,139 @@
+# nginx-cloudlens/values.yaml
+
+# Namespace configuration
+namespace: cloudlens
+
+# Deployment configuration
+deployment:
+  # Number of pods per worker node
+  podsPerNode: 3
+  
+# Image configuration
+image:
+  repository: nginx
+  tag: "1.25.3-alpine"
+  pullPolicy: IfNotPresent
+  
+# Service configuration
+service:
+  type: LoadBalancer
+  httpPort: 80
+  httpsPort: 443
+  annotations:
+    service.beta.kubernetes.io/azure-load-balancer-internal: "false"
+  
+# Ingress configuration  
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+  hosts:
+    - host: nginx.apps.keysight-aro-prod.westus2.aroapp.io
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: nginx-cloudlens-tls
+      hosts:
+        - nginx.apps.keysight-aro-prod.westus2.aroapp.io
+
+# Route configuration for OpenShift
+route:
+  enabled: true
+  host: nginx-cloudlens.apps.keysight-aro-prod.westus2.aroapp.io
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Allow  # Changed from Redirect to Allow
+  # Enable passthrough route for direct HTTPS
+  enablePassthrough: false  # Set to true if you want a separate HTTPS passthrough route
+  passthroughHost: ""  # Optional: custom hostname for passthrough route
+  
+# Resources configuration
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "100m"
+  limits:
+    memory: "256Mi"
+    cpu: "200m"
+
+# Health checks
+livenessProbe:
+  httpGet:
+    path: /
+    port: 8080
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  
+readinessProbe:
+  httpGet:
+    path: /
+    port: 8080
+  initialDelaySeconds: 5
+  periodSeconds: 5
+
+# Horizontal Pod Autoscaler
+autoscaling:
+  enabled: true
+  minReplicas: 9  # 3 pods x 3 nodes minimum
+  maxReplicas: 30
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 50%
+
+# Network Policy
+networkPolicy:
+  enabled: true
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: openshift-ingress
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: cloudlens
+
+# ConfigMap for custom HTML
+customHtml:
+  enabled: true
+  
+# SSL/TLS configuration
+tls:
+  enabled: true
+  generateSelfSigned: true
+
+# Monitoring
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+
+# Node selector to target worker nodes
+nodeSelector:
+  node-role.kubernetes.io/worker: ""
+
+# Tolerations for worker nodes
+tolerations: []
+
+# Labels and annotations
+labels:
+  app: nginx-cloudlens
+  team: cloudlens
+  environment: production
+  
+annotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "9090"
+# Service Account
+serviceAccount:
+  create: true
+  name: ""
